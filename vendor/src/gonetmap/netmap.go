@@ -91,7 +91,7 @@ type NmRing struct {
 	Ts          syscall.Timeval
 	pad_cgo_1   [72]byte
 	Sem         [128]uint8
-	Slots       NmSlot //NmSlot is here
+	Slots       unsafe.Pointer //NmSlot is here
 }
 
 type NmIf struct {
@@ -112,10 +112,6 @@ type NmSlot struct {
 	Ptr   uintptr
 }
 
-type Slot struct {
-	NmSlot *NmSlot
-	Data   *[]byte
-}
 
 type NmReq struct {
 	Name    [16]byte
@@ -180,33 +176,34 @@ func PtrSliceFrom(p unsafe.Pointer, s int) (unsafe.Pointer) {
 	return unsafe.Pointer(&reflect.SliceHeader{Data:uintptr(p), Len:s, Cap:s})
 }
 
-func GetNmSlots(ring *NmRing) ([]NmSlot) {
-	return *(*[]NmSlot)(PtrSliceFrom(unsafe.Pointer(&ring.Slots), int(ring.NumSlots)))
+func GetNmSlots(r *NmRing) (*[]NmSlot) {
+	return (*[]NmSlot)(PtrSliceFrom(unsafe.Pointer(&r.Slots), int(r.NumSlots)))
 }
 
-func GetSlots(ring *NmRing) (*[]Slot) {
-	slots := make([]Slot, ring.NumSlots, ring.NumSlots)
-	nmslots := GetNmSlots(ring)
-	for i := 0; i < int(ring.NumSlots); i++ {
-		slots[i].NmSlot = &nmslots[i]
-		slots[i].Data = (*[]byte)(PtrSliceFrom(NmBufPtr(ring, nmslots[i].Idx), int(ring.Nr_buf_size)))
-	}
-	return &slots
+func NmBufPtr(r *NmRing, slot_ptr *NmSlot) (unsafe.Pointer) {
+	base_ptr := uintptr(unsafe.Pointer(r)) + r.BufOffset
+	buf_size := uintptr(r.Nr_buf_size)
+	slot := *slot_ptr
+	return unsafe.Pointer(base_ptr + uintptr(slot.Idx) * buf_size)
+}
+
+func NmBufSlicePtr(r *NmRing, slot_ptr *NmSlot) (*[]byte) {
+	slot := *slot_ptr
+	return (*[]byte)(PtrSliceFrom(NmBufPtr(r, slot_ptr), int(slot.Len)))
+}
+
+
+func BaseNmBufPtr(buf_base_ptr uintptr, buf_size uintptr, idx uint32) (unsafe.Pointer) {
+	return unsafe.Pointer(buf_base_ptr + uintptr(idx) * buf_size)
 }
 
 func nmRingPtr(nif *NmIf, idx uint32) (uintptr) {
-	base_ptr := uintptr(unsafe.Pointer(nif))
-	ptr := unsafe.Pointer(base_ptr + unsafe.Offsetof(nif.RingOffset))
+	ptr := unsafe.Pointer(uintptr(unsafe.Pointer(nif)) + unsafe.Offsetof(nif.RingOffset))
 	h := *(*[]uintptr)(PtrSliceFrom(ptr, int(nif.TxRings + nif.RxRings + 2)))
 	return uintptr(unsafe.Pointer(nif)) + h[idx]
 
 }
 
-func NmBufPtr(ring *NmRing, idx uint32) (unsafe.Pointer) {
-	base_ptr := uintptr(unsafe.Pointer(ring))
-	ptr := unsafe.Pointer(base_ptr + ring.BufOffset + uintptr(idx) * uintptr(ring.Nr_buf_size))
-	return ptr
-}
 
 func NetmapRing(nif *NmIf, idx uint32, tx bool) (*NmRing) {
 	dbg := false
