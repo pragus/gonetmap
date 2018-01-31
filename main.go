@@ -9,9 +9,13 @@ import (
 	"time"
 	"math"
 	"fmt"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
 )
+
+type Eth struct {
+	Dst [6]byte
+	Src [6]byte
+	Type uint16
+}
 
 func GetAvail(ring *gonetmap.NmRing) (uint32) {
 	if ring.Tail < ring.Cur {
@@ -35,18 +39,15 @@ func RingMove(r *gonetmap.NmRing, step uint32) {
 	r.Head = cur
 }
 
-func SlotToBuf(slot *gonetmap.Slot) ([]byte) {
-	return (*slot.Data)[0:slot.NmSlot.Len]
-
-}
-
-func ProcessBatch(n *gonetmap.NmDesc, r *gonetmap.NmRing, slots *[]gonetmap.Slot, avail uint32) (uint32) {
-	opts := gopacket.DecodeOptions{Lazy:true, NoCopy:true, DecodeStreamsAsDatagrams: false}
+func ProcessBatch(n *gonetmap.NmDesc, r *gonetmap.NmRing, slots_ptr *[]gonetmap.NmSlot, avail uint32) (uint32) {
+	slots := *(slots_ptr)
 	for i := uint32(0); i < avail; i++ {
-		slot := &(*slots)[i]
-		buf := SlotToBuf(slot)
-		pkt := gopacket.NewPacket(buf, layers.LayerTypeEthernet, opts)
-		fmt.Printf("%v %v\n", i, pkt)
+		cur := RingStep(r, i)
+		dataPtr := gonetmap.NmBufPtr(r, &slots[cur])
+		//data := *gonetmap.NmBufSlicePtr(r, &slots[cur])
+		eth := *(*Eth)(dataPtr)
+		_ = eth.Src
+		_ = eth.Dst
 	}
 	return avail
 
@@ -58,7 +59,7 @@ func main() {
 	)
 	flag.Parse()
 	if *iface == "" {
-		log.Println("usage nm -i netmap:em1")
+		log.Println("usage nm -i netmap:p{0")
 		os.Exit(1)
 	}
 	nm, err := gonetmap.OpenNetmap(*iface)
@@ -69,11 +70,11 @@ func main() {
 
 	i := nm.Desc.LastRxRing
 	ring := gonetmap.NetmapRing(nm.Desc.NmIf, uint32(i), false)
-	slots := gonetmap.GetSlots(ring)
+	slots := gonetmap.GetNmSlots(ring)
 	var avail, processed uint32
 	cnt := uint64(0)
 	ts := time.Now()
-	treshold := uint64(10 * math.Pow10(6))
+	treshold := uint64(100 * math.Pow10(6))
 	mult := math.Pow10(3)
 	for {
 		unix.Poll(nm.Pollset, -1)
