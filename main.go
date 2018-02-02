@@ -7,7 +7,6 @@ import (
 	"gonetmap"
 	"golang.org/x/sys/unix"
 	"unsafe"
-
 )
 
 type Eth struct {
@@ -39,21 +38,16 @@ func ProcessVector(vec *Bvec) {
 }
 
 
-
-
 func ProcessRing(r *gonetmap.NmRing, vec *Bvec) (uint32) {
 	avail := gonetmap.GetAvail(r)
 	bufs := (*vec).Bufs
 	(*vec).Len = uint16(avail)
-	base_ptr, buf_size := gonetmap.NmRingBasePtr(r)
 	i := uint32(0)
 	cur := r.Cur
 	for !gonetmap.RingIsEmpty(r) {
 		slot_ptr := gonetmap.PtrSlotRing(r, cur)
-		slot := *slot_ptr
-		ptr := unsafe.Pointer(base_ptr + uintptr(slot.Idx) * buf_size)
-
-		(*bufs)[i].DatPtr = ptr
+		buf_ptr := gonetmap.NmBufPtr(r, slot_ptr)
+		(*bufs)[i].DatPtr = buf_ptr
 		(*bufs)[i].Slot = slot_ptr
 		cur = gonetmap.RingNext(r, cur)
 		i++
