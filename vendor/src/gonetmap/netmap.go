@@ -91,7 +91,7 @@ type NmRing struct {
 	Ts          syscall.Timeval
 	pad_cgo_1   [72]byte
 	Sem         [128]uint8
-	Slots       unsafe.Pointer //NmSlot is here
+	Slots       NmSlot //NmSlot is here
 }
 
 type NmIf struct {
@@ -180,16 +180,52 @@ func GetNmSlots(r *NmRing) (*[]NmSlot) {
 	return (*[]NmSlot)(PtrSliceFrom(unsafe.Pointer(&r.Slots), int(r.NumSlots)))
 }
 
-func NmBufPtr(r *NmRing, slot_ptr *NmSlot) (unsafe.Pointer) {
+func PtrSlotRing(r *NmRing, slot_idx uint32) (*NmSlot) {
+	nm_size := unsafe.Sizeof(r.Slots)
+	return (*NmSlot)(unsafe.Pointer(uintptr(unsafe.Pointer(&r.Slots)) + nm_size*uintptr(slot_idx)))
+}
+
+func NmRingBasePtr(r *NmRing) (uintptr, uintptr)  {
 	base_ptr := uintptr(unsafe.Pointer(r)) + r.BufOffset
 	buf_size := uintptr(r.Nr_buf_size)
-	slot := *slot_ptr
-	return unsafe.Pointer(base_ptr + uintptr(slot.Idx) * buf_size)
+	return base_ptr, buf_size
+
+}
+
+func RingNext(r *NmRing, i uint32) (uint32) {
+	i = i+1
+
+	if i == r.NumSlots {
+		i = 0
+	}
+	r.Cur = i
+	r.Head = i
+	return i
+}
+
+func GetAvail(r *NmRing) (uint32) {
+	if r.Tail < r.Cur {
+		return r.Tail - r.Cur + r.NumSlots
+	} else {
+		return r.Tail - r.Cur
+	}
+}
+
+func RingIsEmpty(r *NmRing) (bool)  {
+	return (r.Cur == r.Tail)
+
+}
+
+func NmBufPtr(r *NmRing, slot_ptr *NmSlot) (unsafe.Pointer) {
+	idx := uintptr((*slot_ptr).Idx)
+	base_ptr := uintptr(unsafe.Pointer(r)) + r.BufOffset
+	buf_size := uintptr(r.Nr_buf_size)
+	ptr := unsafe.Pointer(base_ptr + idx * buf_size)
+	return ptr
 }
 
 func NmBufSlicePtr(r *NmRing, slot_ptr *NmSlot) (*[]byte) {
-	slot := *slot_ptr
-	return (*[]byte)(PtrSliceFrom(NmBufPtr(r, slot_ptr), int(slot.Len)))
+	return (*[]byte)(PtrSliceFrom(NmBufPtr(r, slot_ptr), int((*slot_ptr).Len)))
 }
 
 

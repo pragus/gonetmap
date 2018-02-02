@@ -6,49 +6,61 @@ import (
 	"os"
 	"gonetmap"
 	"golang.org/x/sys/unix"
-	"time"
-	"math"
-	"fmt"
+	"unsafe"
+
 )
 
 type Eth struct {
-	Dst [6]byte
-	Src [6]byte
+	Dst  [6]byte
+	Src  [6]byte
 	Type uint16
 }
 
-func GetAvail(ring *gonetmap.NmRing) (uint32) {
-	if ring.Tail < ring.Cur {
-		return ring.Tail - ring.Cur + ring.NumSlots
-	} else {
-		return ring.Tail - ring.Cur
+
+type Buffer struct {
+	DatPtr unsafe.Pointer
+	Slot *gonetmap.NmSlot
+}
+
+type Bvec struct {
+	Bufs *[]Buffer
+	Len  uint16
+}
+
+func SwapAddr(eth *Eth) {
+	(*eth).Src, (*eth).Dst = (*eth).Dst, (*eth).Src
+}
+
+func ProcessVector(vec *Bvec) {
+	for i := uint32(0); i < uint32((*vec).Len); i++ {
+		eth := (*Eth)((*(*vec).Bufs)[i].DatPtr)
+		SwapAddr(eth)
 	}
 }
 
-func RingStep(r *gonetmap.NmRing, step uint32) (uint32) {
-	cur := r.Cur + step
-	if cur >= r.NumSlots {
-		cur -= r.NumSlots
-	}
-	return cur
-}
 
-func RingMove(r *gonetmap.NmRing, step uint32) {
-	cur := RingStep(r, step)
-	r.Cur = cur
-	r.Head = cur
-}
 
-func ProcessBatch(n *gonetmap.NmDesc, r *gonetmap.NmRing, slots_ptr *[]gonetmap.NmSlot, avail uint32) (uint32) {
-	slots := *(slots_ptr)
-	for i := uint32(0); i < avail; i++ {
-		cur := RingStep(r, i)
-		dataPtr := gonetmap.NmBufPtr(r, &slots[cur])
-		//data := *gonetmap.NmBufSlicePtr(r, &slots[cur])
-		eth := *(*Eth)(dataPtr)
-		_ = eth.Src
-		_ = eth.Dst
+
+func ProcessRing(r *gonetmap.NmRing, vec *Bvec) (uint32) {
+	avail := gonetmap.GetAvail(r)
+	bufs := (*vec).Bufs
+	(*vec).Len = uint16(avail)
+	base_ptr, buf_size := gonetmap.NmRingBasePtr(r)
+	i := uint32(0)
+	cur := r.Cur
+	for !gonetmap.RingIsEmpty(r) {
+		slot_ptr := gonetmap.PtrSlotRing(r, cur)
+		slot := *slot_ptr
+		ptr := unsafe.Pointer(base_ptr + uintptr(slot.Idx) * buf_size)
+
+		(*bufs)[i].DatPtr = ptr
+		(*bufs)[i].Slot = slot_ptr
+		cur = gonetmap.RingNext(r, cur)
+		i++
+
 	}
+	ProcessVector(vec)
+
 	return avail
 
 }
@@ -67,29 +79,13 @@ func main() {
 		log.Println(err)
 		return
 	}
-
 	i := nm.Desc.LastRxRing
 	ring := gonetmap.NetmapRing(nm.Desc.NmIf, uint32(i), false)
-	slots := gonetmap.GetNmSlots(ring)
-	var avail, processed uint32
-	cnt := uint64(0)
-	ts := time.Now()
-	treshold := uint64(100 * math.Pow10(6))
-	mult := math.Pow10(3)
+	buf := make([]Buffer, ring.NumSlots, ring.NumSlots)
+	vec := Bvec{Bufs:&buf, Len:uint16(ring.NumSlots)}
 	for {
 		unix.Poll(nm.Pollset, -1)
-		avail = GetAvail(ring)
-		processed = ProcessBatch(nm.Desc, ring, slots, avail)
-		RingMove(ring, processed)
-		cnt += uint64(processed)
-		if cnt >= treshold {
-			now := time.Now()
-			delta := now.UnixNano() - ts.UnixNano()
-			rate := float64(cnt) / float64(delta) * mult
-			fmt.Printf("%.3f\n", rate)
-			ts = now
-			cnt = 0
-		}
+		ProcessRing(ring, &vec)
 	}
 	defer nm.Close()
 }
