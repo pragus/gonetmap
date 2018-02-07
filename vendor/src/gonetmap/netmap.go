@@ -1,5 +1,6 @@
 package gonetmap
 
+
 /*
 #include <stdio.h>
 #define NETMAP_WITH_LIBS
@@ -112,7 +113,6 @@ type NmSlot struct {
 	Ptr   uintptr
 }
 
-
 type NmReq struct {
 	Name    [16]byte
 	Version uint32
@@ -182,10 +182,10 @@ func (r *NmRing) GetSlots() (*[]NmSlot) {
 
 func (r *NmRing) Slot(slot_idx uint32) (*NmSlot) {
 	nm_size := unsafe.Sizeof(r.Slots)
-	return (*NmSlot)(unsafe.Pointer(uintptr(unsafe.Pointer(&r.Slots)) + nm_size*uintptr(slot_idx)))
+	return (*NmSlot)(unsafe.Pointer(uintptr(unsafe.Pointer(&r.Slots)) + nm_size * uintptr(slot_idx)))
 }
 
-func (r *NmRing) Base() (uintptr, uintptr)  {
+func (r *NmRing) Base() (uintptr, uintptr) {
 	base_ptr := uintptr(unsafe.Pointer(r)) + r.BufOffset
 	buf_size := uintptr(r.Nr_buf_size)
 	return base_ptr, buf_size
@@ -193,7 +193,7 @@ func (r *NmRing) Base() (uintptr, uintptr)  {
 }
 
 func (r *NmRing) Next(i uint32) (uint32) {
-	i = i+1
+	i = i + 1
 
 	if i == r.NumSlots {
 		i = 0
@@ -211,7 +211,7 @@ func (r *NmRing) GetAvail() (uint32) {
 	}
 }
 
-func (r *NmRing) RingIsEmpty() (bool)  {
+func (r *NmRing) RingIsEmpty() (bool) {
 	return (r.Cur == r.Tail)
 
 }
@@ -228,7 +228,6 @@ func (r *NmRing) BufferSlice(slot_ptr *NmSlot) (*[]byte) {
 	return (*[]byte)(PtrSliceFrom(r.SlotBuffer(slot_ptr), int((*slot_ptr).Len)))
 }
 
-
 func BaseBuf(buf_base_ptr uintptr, buf_size uintptr, idx uint32) (unsafe.Pointer) {
 	return unsafe.Pointer(buf_base_ptr + uintptr(idx) * buf_size)
 }
@@ -239,7 +238,6 @@ func (nif *NmIf) ring(idx uint32) (uintptr) {
 	return uintptr(unsafe.Pointer(nif)) + h[idx]
 
 }
-
 
 func OpenRingbyNif(nif *NmIf, idx uint32, tx bool) (*NmRing) {
 	dbg := false
@@ -260,7 +258,6 @@ func OpenRingbyNif(nif *NmIf, idx uint32, tx bool) (*NmRing) {
 	return (*NmRing)(unsafe.Pointer(ring_ptr))
 }
 
-
 func New() (*Netmap) {
 	return new(Netmap)
 
@@ -271,7 +268,7 @@ func (n *Netmap) OpenRing(idx uint32, tx bool) (*NmRing) {
 
 }
 
-func (n *Netmap) Open(device string) (err error) {
+func (n *Netmap) COpen(device string) (err error) {
 	dev := C.CString(device)
 	defer C.free(unsafe.Pointer(dev))
 
@@ -285,6 +282,11 @@ func (n *Netmap) Open(device string) (err error) {
 
 }
 
-func (p *Netmap) Close() {
-	C.nm_close(((*C.struct_nm_desc))(unsafe.Pointer(&p.Desc)))
+func (n *Netmap) Close() {
+	C.nm_close(((*C.struct_nm_desc))(unsafe.Pointer(&n.Desc)))
+}
+
+func (n *Netmap) Poll(timeout int) {
+	unix.Poll(n.Pollset, timeout)
+
 }

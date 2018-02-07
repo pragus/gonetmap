@@ -5,14 +5,12 @@ import (
 	"log"
 	"os"
 	"gonetmap"
-	"golang.org/x/sys/unix"
 )
-
 
 func ProcessRing(r *gonetmap.NmRing) (uint16) {
 	var i uint16
 	cur := r.Cur
-	for i:=0; !r.RingIsEmpty(); i++ {
+	for i := 0; !r.RingIsEmpty(); i++ {
 		slot_ptr := r.Slot(cur)
 		buf_ptr := r.SlotBuffer(slot_ptr)
 		_ = buf_ptr
@@ -28,21 +26,19 @@ func main() {
 		iface = flag.String("i", "", "interface")
 	)
 	flag.Parse()
-
 	if *iface == "" {
 		log.Println("usage nm -i netmap:p{0")
 		os.Exit(1)
 	}
-
 	nm := gonetmap.New()
-	if err := nm.Open(*iface); err != nil {
+	if err := nm.COpen(*iface); err != nil {
 		log.Println(err)
 		return
 	}
 
 	ring := nm.OpenRing(uint32(nm.Desc.LastRxRing), false)
 	for {
-		unix.Poll(nm.Pollset, -1)
+		nm.Poll(-1)
 		ProcessRing(ring)
 	}
 	defer nm.Close()
