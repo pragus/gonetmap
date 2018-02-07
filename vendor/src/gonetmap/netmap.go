@@ -176,23 +176,23 @@ func PtrSliceFrom(p unsafe.Pointer, s int) (unsafe.Pointer) {
 	return unsafe.Pointer(&reflect.SliceHeader{Data:uintptr(p), Len:s, Cap:s})
 }
 
-func GetNmSlots(r *NmRing) (*[]NmSlot) {
+func (r *NmRing) GetSlots() (*[]NmSlot) {
 	return (*[]NmSlot)(PtrSliceFrom(unsafe.Pointer(&r.Slots), int(r.NumSlots)))
 }
 
-func PtrSlotRing(r *NmRing, slot_idx uint32) (*NmSlot) {
+func (r *NmRing) Slot(slot_idx uint32) (*NmSlot) {
 	nm_size := unsafe.Sizeof(r.Slots)
 	return (*NmSlot)(unsafe.Pointer(uintptr(unsafe.Pointer(&r.Slots)) + nm_size*uintptr(slot_idx)))
 }
 
-func NmRingBasePtr(r *NmRing) (uintptr, uintptr)  {
+func (r *NmRing) Base() (uintptr, uintptr)  {
 	base_ptr := uintptr(unsafe.Pointer(r)) + r.BufOffset
 	buf_size := uintptr(r.Nr_buf_size)
 	return base_ptr, buf_size
 
 }
 
-func RingNext(r *NmRing, i uint32) (uint32) {
+func (r *NmRing) Next(i uint32) (uint32) {
 	i = i+1
 
 	if i == r.NumSlots {
@@ -203,7 +203,7 @@ func RingNext(r *NmRing, i uint32) (uint32) {
 	return i
 }
 
-func GetAvail(r *NmRing) (uint32) {
+func (r *NmRing) GetAvail() (uint32) {
 	if r.Tail < r.Cur {
 		return r.Tail - r.Cur + r.NumSlots
 	} else {
@@ -211,12 +211,12 @@ func GetAvail(r *NmRing) (uint32) {
 	}
 }
 
-func RingIsEmpty(r *NmRing) (bool)  {
+func (r *NmRing) RingIsEmpty() (bool)  {
 	return (r.Cur == r.Tail)
 
 }
 
-func NmBufPtr(r *NmRing, slot_ptr *NmSlot) (unsafe.Pointer) {
+func (r *NmRing) SlotBuffer(slot_ptr *NmSlot) (unsafe.Pointer) {
 	idx := uintptr((*slot_ptr).Idx)
 	base_ptr := uintptr(unsafe.Pointer(r)) + r.BufOffset
 	buf_size := uintptr(r.Nr_buf_size)
@@ -224,16 +224,16 @@ func NmBufPtr(r *NmRing, slot_ptr *NmSlot) (unsafe.Pointer) {
 	return ptr
 }
 
-func NmBufSlicePtr(r *NmRing, slot_ptr *NmSlot) (*[]byte) {
-	return (*[]byte)(PtrSliceFrom(NmBufPtr(r, slot_ptr), int((*slot_ptr).Len)))
+func (r *NmRing) BufferSlice(slot_ptr *NmSlot) (*[]byte) {
+	return (*[]byte)(PtrSliceFrom(r.SlotBuffer(slot_ptr), int((*slot_ptr).Len)))
 }
 
 
-func BaseNmBufPtr(buf_base_ptr uintptr, buf_size uintptr, idx uint32) (unsafe.Pointer) {
+func BaseBuf(buf_base_ptr uintptr, buf_size uintptr, idx uint32) (unsafe.Pointer) {
 	return unsafe.Pointer(buf_base_ptr + uintptr(idx) * buf_size)
 }
 
-func nmRingPtr(nif *NmIf, idx uint32) (uintptr) {
+func (nif *NmIf) ring(idx uint32) (uintptr) {
 	ptr := unsafe.Pointer(uintptr(unsafe.Pointer(nif)) + unsafe.Offsetof(nif.RingOffset))
 	h := *(*[]uintptr)(PtrSliceFrom(ptr, int(nif.TxRings + nif.RxRings + 2)))
 	return uintptr(unsafe.Pointer(nif)) + h[idx]
@@ -241,15 +241,15 @@ func nmRingPtr(nif *NmIf, idx uint32) (uintptr) {
 }
 
 
-func NetmapRing(nif *NmIf, idx uint32, tx bool) (*NmRing) {
+func OpenRingbyNif(nif *NmIf, idx uint32, tx bool) (*NmRing) {
 	dbg := false
 	var ring_ptr uintptr
 	var ring_cptr unsafe.Pointer
 	if tx {
-		ring_ptr = nmRingPtr(nif, idx)
+		ring_ptr = nif.ring(idx)
 		ring_cptr = unsafe.Pointer(C.netmap_txring(unsafe.Pointer(nif), C.uint32_t(idx)))
 	} else {
-		ring_ptr = nmRingPtr(nif, idx + nif.TxRings + 1)
+		ring_ptr = nif.ring(idx + nif.TxRings + 1)
 		ring_cptr = unsafe.Pointer(C.netmap_rxring(unsafe.Pointer(nif), C.uint32_t(idx)))
 
 	}
@@ -260,18 +260,27 @@ func NetmapRing(nif *NmIf, idx uint32, tx bool) (*NmRing) {
 	return (*NmRing)(unsafe.Pointer(ring_ptr))
 }
 
-func OpenNetmap(device string) (handle *Netmap, err error) {
+
+func New() (*Netmap) {
+	return new(Netmap)
+
+}
+
+func (n *Netmap) OpenRing(idx uint32, tx bool) (*NmRing) {
+	return OpenRingbyNif(n.Desc.NmIf, idx, tx)
+
+}
+
+func (n *Netmap) Open(device string) (err error) {
 	dev := C.CString(device)
 	defer C.free(unsafe.Pointer(dev))
 
-	h := new(Netmap)
-	h.Desc = (*NmDesc)(unsafe.Pointer(C.nm_open(dev, nil, 0, nil)))
-	if h.Desc == nil {
-		return nil, OPEN_FAILED
+	n.Desc = (*NmDesc)(unsafe.Pointer(C.nm_open(dev, nil, 0, nil)))
+	if n.Desc == nil {
+		return OPEN_FAILED
 	}
-	h.Fd = int(h.Desc.Fd)
-	h.Pollset = []unix.PollFd{{Fd: h.Desc.Fd, Events:unix.POLLIN, Revents: 0}}
-	handle = h
+	n.Fd = int(n.Desc.Fd)
+	n.Pollset = []unix.PollFd{{Fd: n.Desc.Fd, Events:unix.POLLIN, Revents: 0}}
 	return
 
 }
