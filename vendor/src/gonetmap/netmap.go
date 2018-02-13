@@ -1,64 +1,97 @@
 package gonetmap
 
-
-/*
-#include <stdio.h>
-#define NETMAP_WITH_LIBS
-//#cgo CFLAGS: -DNETMAP_WITH_LIBS -g3
-#include <net/netmap_user.h>
-
-int nm_getfd(struct nm_desc *d) {
-    return NETMAP_FD(d);
-}
-
-
-size_t* netmap_buf(void* ring, uint32_t index) {return (size_t*)NETMAP_BUF((struct netmap_ring*)ring, index);}
-
-size_t* netmap_rxring(void* nifp, uint32_t index) {return (size_t*)NETMAP_RXRING((struct netmap_if*)nifp, index);}
-
-size_t* netmap_txring(void* nifp, uint32_t index) {return (size_t*)NETMAP_TXRING((struct netmap_if*)nifp, index);}
-
-static struct nm_desc *open_netmap(const char *ifname) {
-    printf("%s\n", ifname);
-    return nm_open(ifname, NULL, 0, NULL);
-}
-
-*/
-import "C"
-
 import (
 	"errors"
 	"time"
 	"unsafe"
 	"syscall"
 	"reflect"
-	"fmt"
 	"golang.org/x/sys/unix"
+	"github.com/paypal/gatt/linux/gioctl"
+	"os"
+	"sync"
+//	"fmt"
 )
+
+const netmapDev  = "/dev/netmap"
 
 const (
-	NM_OPEN_NO_MMAP = 0x040000 /* reuse mmap from parent */
-	NM_OPEN_IFNAME = 0x080000 /* nr_name, nr_ringid, nr_flags */
-	NM_OPEN_ARG1 = 0x100000
-	NM_OPEN_ARG2 = 0x200000
-	NM_OPEN_ARG3 = 0x400000
-	NM_OPEN_RING_CFG = 0x800000 /* tx|rx rings|slots */
+	NetmapOpenNoMmap = 0x040000 /* reuse mmap from parent */
+	NetmapOpenIfname = 0x080000 /* nr_name, nr_ringid, nr_flags */
+	NetmapOpenArg1 = 0x100000
+	NetmapOpenArg2 = 0x200000
+	NetmapOpenArg3 = 0x400000
+	NetmapOpenRingCfg = 0x800000 /* tx|rx rings|slots */
 )
+const NR_REG_MASK = 0xf
+const IOINT = uintptr('i')
+const NmReqSize = unsafe.Sizeof(Request{})
+
+var nInfo = gioctl.IoRW(IOINT, 145, NmReqSize) // _IOWR('i', 145, struct nmreq)
+var nRegIf = gioctl.IoRW(IOINT, 146, NmReqSize) // _IOWR('i', 146, struct nmreq)
+var nTxSync = gioctl.Io(IOINT, 148) // _IO('i', 148) /* sync tx queues */
+var nRxSync = gioctl.Io(IOINT, 149) // _IO('i', 149) /* sync rx queues */
+
 
 var (
-	OPEN_FAILED = errors.New("open netmap failed")
-	BUFF_IS_NULL = errors.New("buffer is nil")
-	INJECT_FAILED = errors.New("netmap inject failed")
+	OpenFailed = errors.New("open netmap failed")
+	BufIsNull = errors.New("buffer is nil")
+	InjectFailed = errors.New("netmap inject failed")
 )
 
-type Dummy struct {
-	size_t *C.size_t
+func ifaceTOuint16(i interface{}) uint16 {
+	var idx uint16
+	switch i.(type) {
+	case int:
+		idx = uint16(i.(int))
+	case int16:
+		idx = uint16(i.(int16))
+	case int32:
+		idx = uint16(i.(int32))
+	case int64:
+		idx = uint16(i.(int64))
+
+	case uint:
+		idx = uint16(i.(int))
+	case uint16:
+		idx = uint16(i.(uint16))
+	case uint32:
+		idx = uint16(i.(uint32))
+	case uint64:
+		idx = uint16(i.(uint64))
+	}
+	return idx
+}
+
+func ifaceTOuint32(i interface{}) uint32 {
+	var idx uint32
+	switch i.(type) {
+	case int:
+		idx = uint32(i.(int))
+	case int16:
+		idx = uint32(i.(int16))
+	case int32:
+		idx = uint32(i.(int32))
+	case int64:
+		idx = uint32(i.(int64))
+
+	case uint:
+		idx = uint32(i.(int))
+	case uint16:
+		idx = uint32(i.(uint16))
+	case uint32:
+		idx = uint32(i.(uint32))
+	case uint64:
+		idx = uint32(i.(uint64))
+	}
+	return idx
 }
 
 type Netmap struct {
-	Desc    *NmDesc
-	Fd      int
+	file    *os.File
+	MemReg  uintptr
 	Pollset []unix.PollFd
+	lock    sync.Mutex
 }
 
 type Packet struct {
@@ -68,34 +101,30 @@ type Packet struct {
 	Data   []byte    // raw packet data
 }
 
-type NmStat struct {
+type Stat struct {
 	Received  uint32
 	Dropped   uint32
 	IfDropped uint32
 }
 
-type CNmRing struct {
-	Ring *C.struct_netmap_ring
+type NetmapRing struct {
+	BufOffset uintptr
+	NumSlots  uint32
+	BufSize   uint16
+	RingId    uint16
+	Direction uint16
+	Head      uint32
+	Cur       uint32
+	Tail      uint32
+	Flags     uint32
+	pad0      [4]byte
+	Ts        syscall.Timeval
+	pad1      [72]byte
+	Sem       [128]uint8
+	Slots     Slot //NmSlot is here
 }
 
-type NmRing struct {
-	BufOffset   uintptr
-	NumSlots    uint32
-	Nr_buf_size uint16
-	RingId      uint16
-	Dir         uint16
-	Head        uint32
-	Cur         uint32
-	Tail        uint32
-	Flags       uint32
-	pad_cgo_0   [4]byte
-	Ts          syscall.Timeval
-	pad_cgo_1   [72]byte
-	Sem         [128]uint8
-	Slots       NmSlot //NmSlot is here
-}
-
-type NmIf struct {
+type NetmapIf struct {
 	Name       [16]byte
 	Version    uint32
 	Flags      uint32
@@ -106,14 +135,14 @@ type NmIf struct {
 	RingOffset unsafe.Pointer //NmRing is here
 }
 
-type NmSlot struct {
+type Slot struct {
 	Idx   uint32
 	Len   uint16
 	Flags uint16
 	Ptr   uintptr
 }
 
-type NmReq struct {
+type Request struct {
 	Name    [16]byte
 	Version uint32
 	Offset  uint32
@@ -131,68 +160,93 @@ type NmReq struct {
 	Spare2  [1]uint32
 }
 
-type NmPktHdr struct {
+type PacketHeader struct {
 	Ts     syscall.Timeval
 	Caplen uint32
 	Len    uint32
 	Flags  uint64
-	Desc   *NmDesc
-	Slot   *NmSlot
+	Desc   *Descriptor
+	Slot   *Slot
 	Buf    *uint8
 }
 
-type NmDesc struct {
-	Self        *NmDesc
+type Descriptor struct {
+	Self        *Descriptor
 	Fd          int32
-	pad_cgo_0   [4]byte
+	pad0        [4]byte
 	Mem         *byte
 	Memsize     uint32
 	DoneMmap    int32
-	NmIf        *NmIf
+	NetmapIf    *NetmapIf
 	FirstTxRing uint16
 	LastTxRing  uint16
 	CurTxRing   uint16
 	FirstRxRing uint16
 	LastRxRing  uint16
 	CurRxRing   uint16
-	Req         NmReq
-	Hdr         NmPktHdr
-	SomeRing    *NmRing
+	Request     Request
+	Header      PacketHeader
+	SomeRing    *NetmapRing
 	BufStart    *byte
 	BufEnd      *byte
 	Snaplen     int32
 	Promisc     int32
 	ToMs        int32
-	pad_cgo_1   [4]byte
+	pad1        [4]byte
 	ErrBuf      *int8
 	IfaceFlags  uint32
 	IfaceReqcap uint32
 	IfaceCurcap uint32
-	Stat        NmStat
+	Stat        Stat
 	Msg         [512]byte
 }
 
-func PtrSliceFrom(p unsafe.Pointer, s int) (unsafe.Pointer) {
+type Register int
+
+const (
+	Default Register = iota        /* backward compat, should not be used. */
+	AllNic = iota
+	Software = iota
+	NicSoftware = iota
+	OneNic = iota
+	PipeMaster = iota
+	PipeSlave = iota
+)
+
+type Direction int
+
+const (
+	RX Direction = iota
+	TX
+)
+
+type NetmapBuffer unsafe.Pointer
+
+func (r *Request) SetName(ifname string) {
+	copy(r.Name[:], ifname)
+}
+
+func ptrSliceFrom(p unsafe.Pointer, s int) (unsafe.Pointer) {
 	return unsafe.Pointer(&reflect.SliceHeader{Data:uintptr(p), Len:s, Cap:s})
 }
 
-func (r *NmRing) GetSlots() (*[]NmSlot) {
-	return (*[]NmSlot)(PtrSliceFrom(unsafe.Pointer(&r.Slots), int(r.NumSlots)))
+func (r *NetmapRing) GetSlots() (*[]Slot) {
+	return (*[]Slot)(ptrSliceFrom(unsafe.Pointer(&r.Slots), int(r.NumSlots)))
 }
 
-func (r *NmRing) Slot(slot_idx uint32) (*NmSlot) {
+func (r *NetmapRing) Slot(slot_idx uint32) (*Slot) {
 	nm_size := unsafe.Sizeof(r.Slots)
-	return (*NmSlot)(unsafe.Pointer(uintptr(unsafe.Pointer(&r.Slots)) + nm_size * uintptr(slot_idx)))
+	return (*Slot)(unsafe.Pointer(uintptr(unsafe.Pointer(&r.Slots)) + nm_size * uintptr(slot_idx)))
 }
 
-func (r *NmRing) Base() (uintptr, uintptr) {
+func (r *NetmapRing) Base() (uintptr, uintptr) {
 	base_ptr := uintptr(unsafe.Pointer(r)) + r.BufOffset
-	buf_size := uintptr(r.Nr_buf_size)
+	buf_size := uintptr(r.BufSize)
 	return base_ptr, buf_size
 
 }
 
-func (r *NmRing) Next(i uint32) (uint32) {
+func (r *NetmapRing) Next(i uint32) (uint32) {
 	i = i + 1
 
 	if i == r.NumSlots {
@@ -203,7 +257,7 @@ func (r *NmRing) Next(i uint32) (uint32) {
 	return i
 }
 
-func (r *NmRing) GetAvail() (uint32) {
+func (r *NetmapRing) GetAvail() (uint32) {
 	if r.Tail < r.Cur {
 		return r.Tail - r.Cur + r.NumSlots
 	} else {
@@ -211,79 +265,87 @@ func (r *NmRing) GetAvail() (uint32) {
 	}
 }
 
-func (r *NmRing) RingIsEmpty() (bool) {
+func (r *NetmapRing) RingIsEmpty() (bool) {
 	return (r.Cur == r.Tail)
 
 }
 
-func (r *NmRing) SlotBuffer(slot_ptr *NmSlot) (unsafe.Pointer) {
+func (r *NetmapRing) SlotBuffer(slot_ptr *Slot) (unsafe.Pointer) {
 	idx := uintptr((*slot_ptr).Idx)
 	base_ptr := uintptr(unsafe.Pointer(r)) + r.BufOffset
-	buf_size := uintptr(r.Nr_buf_size)
+	buf_size := uintptr(r.BufSize)
 	ptr := unsafe.Pointer(base_ptr + idx * buf_size)
 	return ptr
 }
 
-func (r *NmRing) BufferSlice(slot_ptr *NmSlot) (*[]byte) {
-	return (*[]byte)(PtrSliceFrom(r.SlotBuffer(slot_ptr), int((*slot_ptr).Len)))
+func (r *NetmapRing) BufferSlice(slot_ptr *Slot) (*[]byte) {
+	return (*[]byte)(ptrSliceFrom(r.SlotBuffer(slot_ptr), int((*slot_ptr).Len)))
 }
 
-func BaseBuf(buf_base_ptr uintptr, buf_size uintptr, idx uint32) (unsafe.Pointer) {
-	return unsafe.Pointer(buf_base_ptr + uintptr(idx) * buf_size)
-}
-
-func (nif *NmIf) ring(idx uint32) (uintptr) {
+func (nif *NetmapIf) ring(idx uint32) (uintptr) {
 	ptr := unsafe.Pointer(uintptr(unsafe.Pointer(nif)) + unsafe.Offsetof(nif.RingOffset))
-	h := *(*[]uintptr)(PtrSliceFrom(ptr, int(nif.TxRings + nif.RxRings + 2)))
+	h := *(*[]uintptr)(ptrSliceFrom(ptr, int(nif.TxRings + nif.RxRings + 2)))
 	return uintptr(unsafe.Pointer(nif)) + h[idx]
 
 }
 
-func OpenRingbyNif(nif *NmIf, idx uint32, tx bool) (*NmRing) {
-	dbg := false
+func (nif *NetmapIf) OpenRing(RingIndex interface{}, direction Direction) (*NetmapRing) {
 	var ring_ptr uintptr
-	var ring_cptr unsafe.Pointer
-	if tx {
+	idx := ifaceTOuint32(RingIndex)
+	if direction == TX {
 		ring_ptr = nif.ring(idx)
-		ring_cptr = unsafe.Pointer(C.netmap_txring(unsafe.Pointer(nif), C.uint32_t(idx)))
 	} else {
 		ring_ptr = nif.ring(idx + nif.TxRings + 1)
-		ring_cptr = unsafe.Pointer(C.netmap_rxring(unsafe.Pointer(nif), C.uint32_t(idx)))
-
 	}
 
-	if dbg {
-		fmt.Printf("idx: %x, tx: %v, base:%p ring: %x, cring: %x\n", idx, tx, nif, ring_ptr, ring_cptr)
+	return (*NetmapRing)(unsafe.Pointer(ring_ptr))
+}
+
+func (n *Netmap) RegIf(r *Request) (nif *NetmapIf, err error) {
+	if err = gioctl.Ioctl(n.file.Fd(), nRegIf, uintptr(unsafe.Pointer(r))); err == nil {
+		//fmt.Printf("ioctl: %v, %+v\n", err, *r)
+		if err = n.mmap(r); err == nil {
+			nif := (*NetmapIf)(unsafe.Pointer(n.MemReg + uintptr(r.Offset)))
+			return nif, err
+		}
 	}
-	return (*NmRing)(unsafe.Pointer(ring_ptr))
+	//fmt.Printf("ioctl: %v, %+v\n", err, *r)
+	return nif, err
+}
+
+func (n *Netmap) Info(r *Request) (error) {
+	return gioctl.Ioctl(n.file.Fd(), nInfo, uintptr(unsafe.Pointer(r)))
+}
+
+func (n *Netmap) mmap(r *Request) (error) {
+	n.lock.Lock()
+	defer n.lock.Unlock()
+	if n.MemReg != 0 {
+		return nil
+	}
+	fd := int(n.file.Fd())
+	prot := syscall.PROT_READ | syscall.PROT_WRITE
+	if data, err := syscall.Mmap(fd, 0, int(r.Memsize), prot, syscall.MAP_SHARED); err == nil {
+		n.MemReg = (*reflect.SliceHeader)(unsafe.Pointer(&data)).Data
+		return err
+	} else {
+		return err
+	}
 }
 
 func New() (*Netmap) {
-	return new(Netmap)
-
-}
-
-func (n *Netmap) OpenRing(idx uint32, tx bool) (*NmRing) {
-	return OpenRingbyNif(n.Desc.NmIf, idx, tx)
-
-}
-
-func (n *Netmap) COpen(device string) (err error) {
-	dev := C.CString(device)
-	defer C.free(unsafe.Pointer(dev))
-
-	n.Desc = (*NmDesc)(unsafe.Pointer(C.nm_open(dev, nil, 0, nil)))
-	if n.Desc == nil {
-		return OPEN_FAILED
+	file, err := os.OpenFile(netmapDev, os.O_RDWR, 0644)
+	if err != nil {
+		os.Exit(1)
 	}
-	n.Fd = int(n.Desc.Fd)
-	n.Pollset = []unix.PollFd{{Fd: n.Desc.Fd, Events:unix.POLLIN, Revents: 0}}
-	return
+	return &Netmap{
+		MemReg: uintptr(0),
+		file:file,
+		Pollset:[]unix.PollFd{
+			{Fd: int32(file.Fd()), Events:unix.POLLIN, Revents: 0},
+		},
+	}
 
-}
-
-func (n *Netmap) Close() {
-	C.nm_close(((*C.struct_nm_desc))(unsafe.Pointer(&n.Desc)))
 }
 
 func (n *Netmap) Poll(timeout int) {
