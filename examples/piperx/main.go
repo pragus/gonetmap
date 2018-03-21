@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/pragus/go-netmap"
+	"github.com/pragus/gonetmap"
 	"golang.org/x/sys/unix"
 	"unsafe"
 )
