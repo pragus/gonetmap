@@ -40,11 +40,10 @@ func PollingWorker(nif *gonetmap.Interface, ring *gonetmap.NetmapRing, timeout i
 
 func main() {
 	netmap := gonetmap.New()
-	flags := uint32(gonetmap.PipeMaster | gonetmap.NetmapNoTxPoll)
-	req0 := gonetmap.Request{Version: 11, RingId: 0, Flags: flags, Arg1: 0}
+	req0 := gonetmap.Request{Version: 11, RingId: 0, Flags: gonetmap.PipeMaster, Arg1: 0}
 	req0.SetName("p")
 
-	req1 := gonetmap.Request{Version: 11, RingId: 1, Flags: flags, Arg1: 0}
+	req1 := gonetmap.Request{Version: 11, RingId: 1, Flags: gonetmap.PipeMaster, Arg1: 0}
 	req1.SetName("p")
 
 	iface0, _ := netmap.RegIf(&req0)
