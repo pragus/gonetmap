@@ -3,15 +3,19 @@ package main
 import (
 	"github.com/pragus/gonetmap"
 	"golang.org/x/sys/unix"
-	"unsafe"
 )
+
+
+type EtherHdr struct {
+	DAddr     [6]uint
+	SAddr     [6]uint8
+	EtherType uint16
+}
 
 func ProcessSlot(r *gonetmap.NetmapRing, s *gonetmap.Slot) {
 	buf := r.SlotBuffer(s)
 	eth := (*EtherHdr)(buf)
-	ip := (*IPv4Hdr)(unsafe.Pointer(uintptr(buf) + EtherLen))
-	_ = eth.EtherType
-	ip.TimeToLive = 64
+	eth.EtherType = 0x800
 }
 
 func ProcessRing(r *gonetmap.NetmapRing) uint16 {
