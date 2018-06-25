@@ -50,13 +50,13 @@ const NetmapBdgHost = 1 /* attach the host stack on ATTACH */
 type Register int
 
 const (
-	Default     Register = iota /* backward compat, should not be used. */
-	AllNic               = iota
-	Software             = iota
-	NicSoftware          = iota
-	OneNic               = iota
-	PipeMaster           = iota
-	PipeSlave            = iota
+	ReqDefault     Register = iota /* backward compat, should not be used. */
+	ReqAllNic               = iota
+	ReqSoftware             = iota
+	ReqNicSoftware          = iota
+	ReqOneNic               = iota
+	ReqPipeMaster           = iota
+	ReqPipeSlave            = iota
 )
 
 type Direction int
