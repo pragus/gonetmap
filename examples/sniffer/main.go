@@ -10,17 +10,44 @@ import (
 )
 
 type EtherHdr struct {
-	DAddr     [6]uint
-	SAddr     [6]uint8
-	EtherType uint16
+	DAddr     [6]byte
+	SAddr     [6]byte
+	EtherType [2]byte
 }
 
+type VlanHdr struct {
+	VlanTCI   [2]byte
+	VlanProto [2]byte
+}
+
+type EtherVlanHdr struct {
+	EtherHdr
+	VlanHdr
+}
+
+const MACFmt = "%#04x, %02x:%02x:%02x:%02x:%02x:%02x -> %02x:%02x:%02x:%02x:%02x:%02x "
+
 func ProcessSlot(r *gonetmap.NetmapRing, s *gonetmap.Slot) {
-	fmt.Printf("%+v\n", r.BufferSlice(s))
-	/*	buf := r.SlotBuffer(s)
-		eth := (*EtherHdr)(buf)
-		eth.EtherType = 0x800
-	*/
+	buf := r.SlotBuffer(s)
+	eth := (*EtherHdr)(buf)
+
+	fmt.Printf(MACFmt, eth.EtherType,
+		eth.SAddr[0], eth.SAddr[1], eth.SAddr[2], eth.SAddr[3], eth.SAddr[4], eth.SAddr[5],
+		eth.DAddr[0], eth.DAddr[1], eth.DAddr[2], eth.DAddr[3], eth.DAddr[4], eth.DAddr[5],
+	)
+
+	switch eth.EtherType {
+	case [2]byte{0x81, 00}:
+		{
+			eth := (*EtherVlanHdr)(buf)
+			fmt.Printf("tci: %08b proto: %#04x\n", eth.VlanTCI, eth.VlanProto)
+		}
+
+	default:
+		fmt.Printf("\n")
+
+	}
+
 }
 
 func ProcessRing(r *gonetmap.NetmapRing) uint16 {
@@ -41,8 +68,10 @@ func PollingWorker(nif *gonetmap.Interface, ring *gonetmap.NetmapRing, timeout i
 	events := make([]unix.PollFd, 1, 1)
 	events[0] = unix.PollFd{Fd: fd, Events: unix.POLLIN, Revents: 0}
 	for {
-		unix.Poll(events, timeout)
-		ProcessRing(ring)
+		_, err := unix.Poll(events, timeout)
+		if err == nil {
+			ProcessRing(ring)
+		}
 
 	}
 }
@@ -55,12 +84,12 @@ func main() {
 	ringIndex, _ := strconv.Atoi(ifaceData[1])
 
 	netmap := gonetmap.New()
-	req0 := gonetmap.Request{Version: 11, RingId: 0, Flags: gonetmap.ReqNicSoftware, Arg1: 0}
+	req0 := gonetmap.Request{Version: 11, RingId: 0, Flags: gonetmap.ReqAllNic, Arg1: 0}
 	req0.SetName(ifaceData[0])
 
 	iface0, _ := netmap.RegIf(&req0)
 	rxq0 := iface0.OpenRing(ringIndex, gonetmap.RX)
 
-	PollingWorker(iface0, rxq0, 1)
+	PollingWorker(iface0, rxq0, 5)
 
 }
