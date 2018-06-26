@@ -64,10 +64,8 @@ func (r *NetmapRing) RingIsEmpty() bool {
 
 func (r *NetmapRing) SlotBuffer(slot_ptr *Slot) unsafe.Pointer {
 	idx := uintptr((*slot_ptr).Idx)
-	base_ptr := uintptr(unsafe.Pointer(r)) + r.BufOffset
-	buf_size := uintptr(r.BufSize)
-	ptr := unsafe.Pointer(base_ptr + idx*buf_size)
-	return ptr
+	base_ptr, buf_size := r.Base()
+	return unsafe.Pointer(base_ptr + idx*buf_size)
 }
 
 func (r *NetmapRing) BufferSlice(slot_ptr *Slot) *[]byte {
