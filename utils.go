@@ -20,7 +20,7 @@ func ifaceTOuint16(i interface{}) uint16 {
 		idx = uint16(i.(int64))
 
 	case uint:
-		idx = uint16(i.(int))
+		idx = uint16(i.(uint))
 	case uint16:
 		idx = uint16(i.(uint16))
 	case uint32:
@@ -44,7 +44,7 @@ func ifaceTOuint32(i interface{}) uint32 {
 		idx = uint32(i.(int64))
 
 	case uint:
-		idx = uint32(i.(int))
+		idx = uint32(i.(uint))
 	case uint16:
 		idx = uint32(i.(uint16))
 	case uint32:
