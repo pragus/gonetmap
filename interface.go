@@ -28,7 +28,7 @@ func (i *Interface) ring(idx uint32) uintptr {
 
 }
 
-func (i *Interface) OpenRing(RingIndex interface{}, direction Direction) *NetmapRing {
+func (i *Interface) GetRing(RingIndex interface{}, direction Direction) *NetmapRing {
 	var ring_ptr uintptr
 	idx := ifaceTOuint32(RingIndex)
 	if direction == TX {
