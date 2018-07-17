@@ -51,12 +51,12 @@ type Register int
 
 const (
 	ReqDefault     Register = iota /* backward compat, should not be used. */
-	ReqAllNic               = iota
-	ReqSoftware             = iota
-	ReqNicSoftware          = iota
-	ReqOneNic               = iota
-	ReqPipeMaster           = iota
-	ReqPipeSlave            = iota
+	ReqAllNic               = iota /* NR_REG_ALL_NIC, (default) all	hardware ring pairs */
+	ReqSoftware             = iota /* NR_REG_SW, the ``host rings'', connecting to the	host stack. */
+	ReqNicSoftware          = iota /* NR_REG_NIC_SW, all hardware rings and the host rings */
+	ReqOneNic               = iota /* NR_REG_ONE_NIC, only the i-th	hardware ring pair, where the number is	in nr_ringid*/
+	ReqPipeMaster           = iota /* NR_REG_PIPE_MASTER */
+	ReqPipeSlave            = iota /* NR_REG_PIPE_SLAVE */
 )
 
 type Direction int
