@@ -47,7 +47,7 @@ func main() {
 	req0.SetName("p")
 
 	iface0, _ := netmap.RegIf(&req0)
-	rxq0 := iface0.OpenRing(0, gonetmap.RX)
+	rxq0 := iface0.GetRing(0, gonetmap.RX)
 	PollingWorker(iface0, rxq0, 0)
 
 }
