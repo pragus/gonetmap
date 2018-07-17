@@ -1,17 +1,10 @@
 package gonetmap
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"sync"
 	"unsafe"
-)
-
-var (
-	OpenFailed   = errors.New("open netmap failed")
-	BufIsNull    = errors.New("buffer is nil")
-	InjectFailed = errors.New("netmap inject failed")
 )
 
 type Netmap struct {
