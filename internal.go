@@ -60,6 +60,6 @@ type Descriptor struct {
 	Msg         [512]byte
 }
 
-func ptrSliceFrom(p unsafe.Pointer, s int) unsafe.Pointer {
+func PtrSliceFrom(p unsafe.Pointer, s int) unsafe.Pointer {
 	return unsafe.Pointer(&reflect.SliceHeader{Data: uintptr(p), Len: s, Cap: s})
 }

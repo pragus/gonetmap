@@ -23,7 +23,7 @@ type NetmapRing struct {
 }
 
 func (r *NetmapRing) GetSlots() *[]Slot {
-	return (*[]Slot)(ptrSliceFrom(unsafe.Pointer(&r.Slots), int(r.NumSlots)))
+	return (*[]Slot)(PtrSliceFrom(unsafe.Pointer(&r.Slots), int(r.NumSlots)))
 }
 
 func (r *NetmapRing) Slot(slotIdx uint32) *Slot {
@@ -69,5 +69,5 @@ func (r *NetmapRing) SlotBuffer(slot_ptr *Slot) unsafe.Pointer {
 }
 
 func (r *NetmapRing) BufferSlice(slot_ptr *Slot) *[]byte {
-	return (*[]byte)(ptrSliceFrom(r.SlotBuffer(slot_ptr), int((*slot_ptr).Len)))
+	return (*[]byte)(PtrSliceFrom(r.SlotBuffer(slot_ptr), int((*slot_ptr).Len)))
 }

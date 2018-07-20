@@ -23,7 +23,7 @@ type Interface struct {
 
 func (i *Interface) ring(idx uint32) uintptr {
 	ptr := unsafe.Pointer(uintptr(unsafe.Pointer(i.Nif)) + unsafe.Offsetof(i.Nif.RingOffset))
-	h := *(*[]uintptr)(ptrSliceFrom(ptr, int(i.Nif.TxRings+i.Nif.RxRings+2)))
+	h := *(*[]uintptr)(PtrSliceFrom(ptr, int(i.Nif.TxRings+i.Nif.RxRings+2)))
 	return uintptr(unsafe.Pointer(i.Nif)) + h[idx]
 
 }
