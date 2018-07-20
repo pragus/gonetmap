@@ -1,18 +1,18 @@
 package main
 
 import (
+	np "../transparent/netpacket"
 	"flag"
 	"fmt"
 	"github.com/pragus/gonetmap"
 	"golang.org/x/sys/unix"
 )
 
-
 const MACFmt = "%#04x, %02x:%02x:%02x:%02x:%02x:%02x -> %02x:%02x:%02x:%02x:%02x:%02x, "
 
 func ProcessSlot(r *gonetmap.NetmapRing, s *gonetmap.Slot) {
 	buf := r.SlotBuffer(s)
-	eth := (*EtherHdr)(buf)
+	eth := (*np.EtherHdr)(buf)
 	s.Flags = gonetmap.RingForward
 
 	fmt.Printf(MACFmt, eth.EtherType,
@@ -21,12 +21,14 @@ func ProcessSlot(r *gonetmap.NetmapRing, s *gonetmap.Slot) {
 	)
 
 	switch eth.EtherType {
-	case IPV4Number:
+	case np.IPV4Number:
 		{
-		ip := eth.GetIP()
-		fmt.Printf("%+v\n", *ip)
+			ip := eth.GetIP()
+			ip.TimeToLive = 128
+			ip.UpdateChecksum()
+			fmt.Printf("%+v\n", *ip)
 		}
-	case ARPNumber:
+	case np.ARPNumber:
 		arp := eth.GetARP()
 		fmt.Printf("%+v\n", *arp)
 	default:
@@ -54,7 +56,6 @@ func PollingWorker(nif *gonetmap.Interface, timeout int) {
 	fd := int32(nif.File.Fd())
 	events := make([]unix.PollFd, 1, 1)
 	events[0] = unix.PollFd{Fd: fd, Events: unix.POLLIN, Revents: 0}
-
 
 	for {
 		_, err := unix.Poll(events, timeout)
