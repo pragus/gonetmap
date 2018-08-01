@@ -1,9 +1,7 @@
 package gonetmap
 
 import (
-	"reflect"
 	"syscall"
-	"unsafe"
 )
 
 type Stat struct {
