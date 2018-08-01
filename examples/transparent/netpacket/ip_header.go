@@ -2,13 +2,9 @@ package netpacket
 
 import (
 	"encoding/binary"
-	"reflect"
 	"unsafe"
+	"github.com/pragus/gonetmap"
 )
-
-func PtrSliceFrom(p unsafe.Pointer, s int) unsafe.Pointer {
-	return unsafe.Pointer(&reflect.SliceHeader{Data: uintptr(p), Len: s, Cap: s})
-}
 
 type IPv4Hdr struct {
 	VersionIhl     uint8             // version and header length
@@ -25,7 +21,7 @@ type IPv4Hdr struct {
 
 func (h *IPv4Hdr) UpdateChecksum() {
 	var chk uint32
-	b := *(*[]byte)(PtrSliceFrom(unsafe.Pointer(h), IPv4MinLen))
+	b := *(*[]byte)(gonetmap.PtrSliceFrom(unsafe.Pointer(h), IPv4MinLen))
 	for i := 0; i < IPv4MinLen; i += 2 {
 		// Iterating two bytes at a time; checksum bytes occur at offsets
 		// 10 and 11.  Skip them.
@@ -33,7 +29,7 @@ func (h *IPv4Hdr) UpdateChecksum() {
 			continue
 		}
 
-		chk += uint32(binary.BigEndian.Uint16(b[i : i+2]))
+		chk += uint32(binary.BigEndian.Uint16(b[i: i+2]))
 	}
 
 	// "The first 4 bits are the carry and will be added to the rest of

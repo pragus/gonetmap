@@ -7,6 +7,10 @@ import (
 	"unsafe"
 )
 
+func PtrSliceFrom(p unsafe.Pointer, s int) unsafe.Pointer {
+	return unsafe.Pointer(&reflect.SliceHeader{Data: uintptr(p), Len: s, Cap: s})
+}
+
 func ifaceTOuint16(i interface{}) uint16 {
 	var idx uint16
 	switch i.(type) {
