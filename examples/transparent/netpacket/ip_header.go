@@ -38,16 +38,15 @@ func (h *IPv4Hdr) UpdateChecksum() {
 
 	b := *(*[]byte)(gonetmap.PtrSliceFrom(unsafe.Pointer(h), IPv4MinLen))
 
-	p0 := uint32(binary.BigEndian.Uint16(b[Idx0: Idx0+2]))
-	p1 := uint32(binary.BigEndian.Uint16(b[Idx1: Idx1+2]))
-	p2 := uint32(binary.BigEndian.Uint16(b[Idx2: Idx2+2]))
-	p3 := uint32(binary.BigEndian.Uint16(b[Idx3: Idx3+2]))
-	p4 := uint32(binary.BigEndian.Uint16(b[Idx4: Idx4+2]))
-	p5 := uint32(binary.BigEndian.Uint16(b[Idx5: Idx5+2]))
-	p6 := uint32(binary.BigEndian.Uint16(b[Idx6: Idx6+2]))
-	p7 := uint32(binary.BigEndian.Uint16(b[Idx7: Idx7+2]))
-	p8 := uint32(binary.BigEndian.Uint16(b[Idx8: Idx8+2]))
-	chk := p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8
+	chk := uint32(binary.BigEndian.Uint16(b[Idx0: Idx0+2]))
+	chk += uint32(binary.BigEndian.Uint16(b[Idx1: Idx1+2]))
+	chk += uint32(binary.BigEndian.Uint16(b[Idx2: Idx2+2]))
+	chk += uint32(binary.BigEndian.Uint16(b[Idx3: Idx3+2]))
+	chk += uint32(binary.BigEndian.Uint16(b[Idx4: Idx4+2]))
+	chk += uint32(binary.BigEndian.Uint16(b[Idx5: Idx5+2]))
+	chk += uint32(binary.BigEndian.Uint16(b[Idx6: Idx6+2]))
+	chk += uint32(binary.BigEndian.Uint16(b[Idx7: Idx7+2]))
+	chk += uint32(binary.BigEndian.Uint16(b[Idx8: Idx8+2]))
 
 	// "The first 4 bits are the carry and will be added to the rest of
 	// the value."
