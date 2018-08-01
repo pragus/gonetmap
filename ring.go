@@ -27,14 +27,14 @@ func (r *NetmapRing) GetSlots() *[]Slot {
 }
 
 func (r *NetmapRing) Slot(slotIdx uint32) *Slot {
-	slotUptr := unsafe.Pointer(uintptr(unsafe.Pointer(&r.Slots)) + unsafe.Sizeof(r.Slots)*uintptr(slotIdx))
-	return (*Slot)(slotUptr)
+	slotPtrUnsafe := unsafe.Pointer(uintptr(unsafe.Pointer(&r.Slots)) + unsafe.Sizeof(r.Slots)*uintptr(slotIdx))
+	return (*Slot)(slotPtrUnsafe)
 }
 
 func (r *NetmapRing) Base() (uintptr, uintptr) {
-	base_ptr := uintptr(unsafe.Pointer(r)) + r.BufOffset
-	buf_size := uintptr(r.BufSize)
-	return base_ptr, buf_size
+	BasePtr := uintptr(unsafe.Pointer(r)) + r.BufOffset
+	BufSize := uintptr(r.BufSize)
+	return BasePtr, BufSize
 
 }
 
@@ -64,10 +64,10 @@ func (r *NetmapRing) RingIsEmpty() bool {
 
 func (r *NetmapRing) SlotBuffer(slot_ptr *Slot) unsafe.Pointer {
 	idx := uintptr((*slot_ptr).Idx)
-	base_ptr, buf_size := r.Base()
-	return unsafe.Pointer(base_ptr + idx*buf_size)
+	BasePtr, BufSize := r.Base()
+	return unsafe.Pointer(BasePtr + idx*BufSize)
 }
 
-func (r *NetmapRing) BufferSlice(slot_ptr *Slot) *[]byte {
-	return (*[]byte)(PtrSliceFrom(r.SlotBuffer(slot_ptr), int((*slot_ptr).Len)))
+func (r *NetmapRing) BufferSlice(slotPtr *Slot) *[]byte {
+	return (*[]byte)(PtrSliceFrom(r.SlotBuffer(slotPtr), int((*slotPtr).Len)))
 }
