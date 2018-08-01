@@ -27,7 +27,7 @@ func ProcessSlot(r *gonetmap.NetmapRing, s *gonetmap.Slot) {
 			ip := eth.GetIP()
 			ip.TimeToLive = 128
 			ip.UpdateChecksum()
-			//fmt.Printf("%+v\n", *ip)
+			fmt.Printf("%+v\n", *ip)
 		}
 	case np.ARPNumber:
 		arp := eth.GetARP()
