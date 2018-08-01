@@ -15,12 +15,12 @@ func ProcessSlot(r *gonetmap.NetmapRing, s *gonetmap.Slot) {
 	eth := (*np.EtherHdr)(buf)
 	s.Flags = gonetmap.RingForward
 
-	/*
+
 	fmt.Printf(MACFmt, eth.EtherType,
 		eth.SAddr[0], eth.SAddr[1], eth.SAddr[2], eth.SAddr[3], eth.SAddr[4], eth.SAddr[5],
 		eth.DAddr[0], eth.DAddr[1], eth.DAddr[2], eth.DAddr[3], eth.DAddr[4], eth.DAddr[5],
 	)
-	*/
+
 	switch eth.EtherType {
 	case np.IPV4Number:
 		{
@@ -77,7 +77,7 @@ func main() {
 	flag.Parse()
 
 	netmap := gonetmap.New()
-	req0 := gonetmap.Request{Version: 11, RingId: 0, Flags: gonetmap.ReqPipeSlave, Arg1: 0}
+	req0 := gonetmap.Request{Version: 11, RingId: 0, Flags: gonetmap.ReqNicSoftware, Arg1: 0}
 	req0.SetName(*rawifaceData)
 
 	iface, _ := netmap.RegIf(&req0)
