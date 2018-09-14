@@ -8,7 +8,7 @@ type ARPHdr struct {
 	Operation uint16              // Operation type, see ARP constants
 	SHA       [EtherAddrLen]uint8 // Sender hardware address (sender MAC address)
 	SPA       [IPv4AddrLen]uint8  // Sender protocol address (sender IPv4 address)
-	// array is used to avoid alignment (compiler alignes uint32 on 4 bytes)
+	// array is used to avoid alignment (compiler aligns uint32 on 4 bytes)
 	THA [EtherAddrLen]uint8 // Target hardware address (target MAC address)
 	TPA [IPv4AddrLen]uint8  // Target protocol address (target IPv4 address)
 
