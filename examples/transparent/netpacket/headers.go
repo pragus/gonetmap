@@ -39,7 +39,7 @@ const (
 // TCPFlags contains set TCP flags.
 type TCPFlags uint8
 
-// Constants for valuues of TCP flags.
+// Constants for values of TCP flags.
 const (
 	TCPFlagFin = 0x01
 	TCPFlagSyn = 0x02
