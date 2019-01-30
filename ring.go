@@ -19,7 +19,7 @@ type NetmapRing struct {
 	Ts        syscall.Timeval
 	pad1      [72]byte
 	Sem       [128]uint8
-	Slots     Slot //NmSlot is here
+	Slots     Slot // NmSlot is here
 }
 
 func (r *NetmapRing) GetSlots() *[]Slot {
@@ -39,7 +39,7 @@ func (r *NetmapRing) Base() (uintptr, uintptr) {
 }
 
 func (r *NetmapRing) Next(i uint32) uint32 {
-	i = i + 1
+	i++
 
 	if i == r.NumSlots {
 		i = 0
@@ -62,12 +62,12 @@ func (r *NetmapRing) RingIsEmpty() bool {
 
 }
 
-func (r *NetmapRing) SlotBuffer(slot_ptr *Slot) unsafe.Pointer {
-	idx := uintptr((*slot_ptr).Idx)
+func (r *NetmapRing) SlotBuffer(slotPtr *Slot) unsafe.Pointer {
+	idx := uintptr(slotPtr.Idx)
 	BasePtr, BufSize := r.Base()
 	return unsafe.Pointer(BasePtr + idx*BufSize)
 }
 
 func (r *NetmapRing) BufferSlice(slotPtr *Slot) *[]byte {
-	return (*[]byte)(PtrSliceFrom(r.SlotBuffer(slotPtr), int((*slotPtr).Len)))
+	return (*[]byte)(PtrSliceFrom(r.SlotBuffer(slotPtr), int(slotPtr.Len)))
 }
