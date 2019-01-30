@@ -8,24 +8,24 @@ type DstType generic.Type
 
 func ifaceTODstType(i interface{}) DstType {
 	var idx DstType
-	switch i.(type) {
+	switch i := i.(type) {
 	case int:
-		idx = DstType(i.(int))
+		idx = DstType(i)
 	case int16:
-		idx = DstType(i.(int16))
+		idx = DstType(i)
 	case int32:
-		idx = DstType(i.(int32))
+		idx = DstType(i)
 	case int64:
-		idx = DstType(i.(int64))
+		idx = DstType(i)
 
 	case uint:
-		idx = DstType(i.(int))
+		idx = DstType(i)
 	case uint16:
-		idx = DstType(i.(uint16))
+		idx = DstType(i)
 	case uint32:
-		idx = DstType(i.(uint32))
+		idx = DstType(i)
 	case uint64:
-		idx = DstType(i.(uint64))
+		idx = DstType(i)
 	}
 	return idx
 }
