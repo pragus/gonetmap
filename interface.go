@@ -13,7 +13,7 @@ type NetmapIf struct {
 	RxRings    uint32
 	BufsHead   uint32
 	Spare1     [5]uint32
-	RingOffset unsafe.Pointer //NmRing is here
+	RingOffset unsafe.Pointer // NmRing is here
 }
 
 type Interface struct {
@@ -28,15 +28,15 @@ func (i *Interface) ring(idx uint32) uintptr {
 
 }
 
-func (i *Interface) GetRing(RingIndex interface{}, direction Direction) *NetmapRing {
-	var ring_ptr uintptr
-	idx := ifaceTOuint32(RingIndex)
+func (i *Interface) GetRing(ringIndex interface{}, direction Direction) *NetmapRing {
+	var ringPtr uintptr
+	idx := ifaceTOuint32(ringIndex)
 	if direction == TX {
-		ring_ptr = i.ring(idx)
+		ringPtr = i.ring(idx)
 	} else {
-		ring_ptr = i.ring(idx + i.Nif.TxRings + 1)
+		ringPtr = i.ring(idx + i.Nif.TxRings + 1)
 	}
-	return (*NetmapRing)(unsafe.Pointer(ring_ptr))
+	return (*NetmapRing)(unsafe.Pointer(ringPtr))
 }
 
 func (i *Interface) RxSync() error {
