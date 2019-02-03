@@ -13,48 +13,48 @@ func PtrSliceFrom(p unsafe.Pointer, s int) unsafe.Pointer {
 
 func ifaceTOuint16(i interface{}) uint16 {
 	var idx uint16
-	switch i.(type) {
+	switch i := i.(type) {
 	case int:
-		idx = uint16(i.(int))
+		idx = uint16(i)
 	case int16:
-		idx = uint16(i.(int16))
+		idx = uint16(i)
 	case int32:
-		idx = uint16(i.(int32))
+		idx = uint16(i)
 	case int64:
-		idx = uint16(i.(int64))
+		idx = uint16(i)
 
 	case uint:
-		idx = uint16(i.(uint))
+		idx = uint16(i)
 	case uint16:
-		idx = uint16(i.(uint16))
+		idx = uint16(i)
 	case uint32:
-		idx = uint16(i.(uint32))
+		idx = uint16(i)
 	case uint64:
-		idx = uint16(i.(uint64))
+		idx = uint16(i)
 	}
 	return idx
 }
 
 func ifaceTOuint32(i interface{}) uint32 {
 	var idx uint32
-	switch i.(type) {
+	switch i := i.(type) {
 	case int:
-		idx = uint32(i.(int))
+		idx = uint32(i)
 	case int16:
-		idx = uint32(i.(int16))
+		idx = uint32(i)
 	case int32:
-		idx = uint32(i.(int32))
+		idx = uint32(i)
 	case int64:
-		idx = uint32(i.(int64))
+		idx = uint32(i)
 
 	case uint:
-		idx = uint32(i.(uint))
+		idx = uint32(i)
 	case uint16:
-		idx = uint32(i.(uint16))
+		idx = uint32(i)
 	case uint32:
-		idx = uint32(i.(uint32))
+		idx = uint32(i)
 	case uint64:
-		idx = uint32(i.(uint64))
+		idx = uint32(i)
 	}
 	return idx
 }
